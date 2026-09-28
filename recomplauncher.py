@@ -1,8 +1,9 @@
 """ReComp Launcher — a launcher/library for Nintendo recompiled & decomp-ported games.
 
 Features: box-art grid (resizable, drag-reorder), per-game details with hero banner,
-themes, folder scanning, tags/favorites, playtime tracking, launch profiles,
-GitHub update checking, screenshots, system tray, keyboard shortcuts.
+themes, folder scanning, a built-in release catalog, tags/favorites, playtime
+tracking, launch profiles, GitHub update checking, screenshots, system tray,
+keyboard shortcuts.
 
 Run with:  python recomplauncher.py
 """
@@ -149,6 +150,17 @@ KNOWN_RECOMPS: list[dict] = [
         "search": "The Legend of Zelda: A Link to the Past",
         "github_repo": "snesrev/zelda3", "tags": ["Zelda", "SNES", "Decomp"],
     },
+    {
+        # Epoch & Equinox includes both Oracle carts in one runner. The
+        # project's separate "Epoch & Equinox Launcher.exe" is intentionally
+        # ignored by SCAN_BLACKLIST; epoch.exe is the playable binary.
+        "names": ["epoch.exe"], "patterns": ["epoch-equinox"],
+        "title": "The Legend of Zelda: Oracle of Ages & Oracle of Seasons",
+        "platform": "Epoch & Equinox",
+        "search": "The Legend of Zelda: Oracle of Ages and Oracle of Seasons",
+        "github_repo": "ZakyPew/epoch-equinox",
+        "tags": ["Zelda", "Game Boy Color", "Recompiled"],
+    },
     # ----- Non-Nintendo recomps / decomp PC ports -----
     {
         "names": ["unleashedrecomp.exe"], "patterns": ["unleashedrecomp"],
@@ -173,6 +185,59 @@ KNOWN_RECOMPS: list[dict] = [
         "title": "Sonic CD (2011)",
         "platform": "RSDKv3 Decompilation", "search": "Sonic CD",
         "github_repo": "RSDKModding/RSDKv3-Decompilation", "tags": ["Sonic", "Retro Engine", "Decomp"],
+    },
+    {
+        "names": ["sonicmania.exe", "rsdkv5.exe"],
+        "patterns": ["sonic-mania-decompilation", "sonicmania"],
+        "title": "Sonic Mania",
+        "platform": "RSDKv5 Decompilation", "search": "Sonic Mania",
+        "github_repo": "RSDKModding/Sonic-Mania-Decompilation",
+        "tags": ["Sonic", "Retro Engine", "Decomp"],
+    },
+    {
+        "names": ["snap64recomp.exe"], "patterns": ["snap64recomp"],
+        "title": "Pokémon Snap",
+        "platform": "Snap64Recomp", "search": "Pokémon Snap",
+        "github_repo": "JackandBeans/Snap64Recomp",
+        "tags": ["Pokémon", "N64", "Recompiled"],
+    },
+    {
+        "names": ["megamanxsnesrecomp.exe"],
+        "patterns": ["megamanxsnesrecomp", "megaman-x-snes-recomp"],
+        "title": "Mega Man X",
+        "platform": "Mega Man X SNES Recomp", "search": "Mega Man X",
+        "github_repo": "mstan/MegaManXSNESRecomp",
+        "tags": ["Mega Man", "SNES", "Recompiled"],
+    },
+    {
+        "names": ["supermariobrosrecomp.exe"],
+        "patterns": ["supermariobrosnesrecomp", "supermariobrosrecomp"],
+        "title": "Super Mario Bros.",
+        "platform": "Super Mario Bros. NES Recomp", "search": "Super Mario Bros.",
+        "github_repo": "mstan/SuperMarioBrosNESRecomp",
+        "tags": ["Mario", "NES", "Recompiled"],
+    },
+    {
+        "names": ["duckhuntrecomp.exe"], "patterns": ["duckhuntnesrecomp", "duckhuntrecomp"],
+        "title": "Duck Hunt",
+        "platform": "Duck Hunt NES Recomp", "search": "Duck Hunt",
+        "github_repo": "mstan/DuckHuntNESRecomp",
+        "tags": ["NES", "Zapper", "Recompiled"],
+    },
+    {
+        "names": ["faxanadurecomp.exe"], "patterns": ["faxanadurecomp"],
+        "title": "Faxanadu",
+        "platform": "Faxanadu NES Recomp", "search": "Faxanadu",
+        "github_repo": "mstan/FaxanaduRecomp",
+        "tags": ["NES", "Action RPG", "Recompiled"],
+    },
+    {
+        "names": ["trx.exe"], "patterns": ["lostartefacts-trx"],
+        "title": "Tomb Raider I–III",
+        "platform": "TRX: Tomb Raider I–III Community Edition",
+        "search": "Tomb Raider I II III",
+        "github_repo": "LostArtefacts/TRX",
+        "tags": ["Tomb Raider", "PC", "Reimplementation"],
     },
     {
         # OpenGOAL runtime ships the game as gk.exe ("game kernel"); patterns keep
@@ -1805,6 +1870,208 @@ class EditGameDialog(QDialog):
         return self.game
 
 
+class DownloadLibraryDialog(QDialog):
+    """Browse and download official recomp/decomp release packages.
+
+    The catalog deliberately contains project builds only. Original game data,
+    ROMs, keys, and other copyrighted assets are never downloaded.
+    """
+
+    def __init__(self, parent: "LauncherWindow"):
+        super().__init__(parent)
+        self.main = parent
+        self.setWindowTitle("Get Recompiled Games")
+        self.setMinimumSize(760, 500)
+
+        heading = QLabel("Get recompiled games")
+        heading.setStyleSheet("font-size: 20px; font-weight: 700;")
+        notice = QLabel(
+            "Downloads come directly from each project's official GitHub releases. "
+            "<b>No ROMs or original game data are included or downloaded.</b> "
+            "You must provide any required game files yourself.")
+        notice.setWordWrap(True)
+
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search available projects…")
+        self.search.textChanged.connect(self._fill)
+
+        self.list = QListWidget()
+        self.list.currentItemChanged.connect(self._show_entry)
+
+        self.title = QLabel("Select a project")
+        self.title.setWordWrap(True)
+        self.title.setStyleSheet("font-size: 17px; font-weight: 700;")
+        self.platform = QLabel("")
+        self.platform.setWordWrap(True)
+        self.status = QLabel("")
+        self.status.setWordWrap(True)
+        self.repo = QLabel("")
+        self.repo.setOpenExternalLinks(True)
+        self.repo.setWordWrap(True)
+
+        self.download_btn = QPushButton("⬇  Download Latest Release…")
+        self.download_btn.clicked.connect(self._download)
+        self.project_btn = QPushButton("Open Project Page")
+        self.project_btn.clicked.connect(self._open_project)
+        self.releases_btn = QPushButton("View All Releases")
+        self.releases_btn.clicked.connect(self._open_releases)
+        for btn in (self.download_btn, self.project_btn, self.releases_btn):
+            btn.setEnabled(False)
+
+        left = QVBoxLayout()
+        left.addWidget(self.search)
+        left.addWidget(self.list, 1)
+        right = QVBoxLayout()
+        right.addWidget(self.title)
+        right.addWidget(self.platform)
+        right.addSpacing(8)
+        right.addWidget(self.status)
+        right.addWidget(self.repo)
+        right.addStretch()
+        right.addWidget(self.download_btn)
+        right.addWidget(self.project_btn)
+        right.addWidget(self.releases_btn)
+
+        columns = QHBoxLayout()
+        columns.addLayout(left, 3)
+        columns.addLayout(right, 2)
+        close_btn = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close_btn.rejected.connect(self.reject)
+
+        root = QVBoxLayout(self)
+        root.addWidget(heading)
+        root.addWidget(notice)
+        root.addSpacing(6)
+        root.addLayout(columns, 1)
+        root.addWidget(close_btn)
+
+        # Several executable fingerprints can describe the same project. Show
+        # each official repository only once in the download catalog.
+        self.entries = []
+        seen = set()
+        for entry in KNOWN_RECOMPS:
+            repo = entry.get("github_repo", "").strip()
+            key = repo.lower()
+            if not repo or key in seen:
+                continue
+            seen.add(key)
+            self.entries.append(entry)
+        self.entries.sort(key=lambda e: e["title"].lower())
+        self._fill()
+
+    def _in_library(self, entry: dict) -> bool:
+        repo = entry.get("github_repo", "").lower()
+        return any(g.get("github_repo", "").lower() == repo for g in self.main.games)
+
+    def _fill(self):
+        selected_repo = ""
+        if self.list.currentItem():
+            selected_repo = self.list.currentItem().data(Qt.ItemDataRole.UserRole)[
+                "github_repo"]
+        query = self.search.text().strip().lower()
+        self.list.clear()
+        restore_row = 0
+        for entry in self.entries:
+            haystack = " ".join((entry["title"], entry.get("platform", ""),
+                                 " ".join(entry.get("tags", [])))).lower()
+            if query and query not in haystack:
+                continue
+            prefix = "✓ " if self._in_library(entry) else "⬇ "
+            item = QListWidgetItem(prefix + entry["title"])
+            item.setToolTip(entry.get("platform", ""))
+            item.setData(Qt.ItemDataRole.UserRole, entry)
+            self.list.addItem(item)
+            if entry["github_repo"] == selected_repo:
+                restore_row = self.list.count() - 1
+        if self.list.count():
+            self.list.setCurrentRow(restore_row)
+        else:
+            self._show_entry(None)
+
+    def _entry(self) -> dict | None:
+        item = self.list.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+    def _show_entry(self, item, _previous=None):
+        entry = item.data(Qt.ItemDataRole.UserRole) if item else None
+        enabled = entry is not None
+        for btn in (self.download_btn, self.project_btn, self.releases_btn):
+            btn.setEnabled(enabled)
+        if not entry:
+            self.title.setText("No matching projects")
+            self.platform.clear(); self.status.clear(); self.repo.clear()
+            return
+        repo = entry["github_repo"]
+        self.title.setText(entry["title"])
+        self.platform.setText(entry.get("platform", ""))
+        self.status.setText(
+            "✓ Already in your launcher library" if self._in_library(entry)
+            else "Not currently in your launcher library")
+        self.repo.setText(
+            f"Official source: <a href='https://github.com/{repo}'>{repo}</a>")
+
+    def _open_project(self):
+        entry = self._entry()
+        if entry:
+            webbrowser.open(f"https://github.com/{entry['github_repo']}")
+
+    def _open_releases(self):
+        entry = self._entry()
+        if entry:
+            webbrowser.open(f"https://github.com/{entry['github_repo']}/releases")
+
+    def _download(self):
+        entry = self._entry()
+        if not entry:
+            return
+        dest = QFileDialog.getExistingDirectory(
+            self, f"Download '{entry['title']}' to which folder?")
+        if not dest:
+            return
+
+        self.download_btn.setEnabled(False)
+        self.status.setText("Checking the official release and downloading…")
+        thread = QThread()
+        worker = DownloadWorker(entry["github_repo"], dest)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+
+        def on_progress(pct):
+            if pct >= 0:
+                self.status.setText(f"Downloading… {pct}%")
+
+        def on_finished(path, tag):
+            self.status.setText(f"Downloaded {tag or 'latest'}: {Path(path).name}")
+            self.download_btn.setEnabled(True)
+            reveal_in_file_manager(Path(path).parent)
+            QMessageBox.information(
+                self, "Download complete",
+                f"Downloaded the official project release:\n{Path(path).name}\n\n"
+                "Extract or install it, provide your own legally obtained game files, "
+                "then use Scan Folder to add the playable executable to your library.")
+
+        def on_no_asset(url, tag):
+            self.status.setText("No compatible automatic download was found.")
+            self.download_btn.setEnabled(True)
+            webbrowser.open(url)
+
+        def on_failed(msg):
+            self.status.setText("Download failed.")
+            self.download_btn.setEnabled(True)
+            QMessageBox.warning(self, "Download failed", msg)
+
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.no_asset.connect(on_no_asset)
+        worker.failed.connect(on_failed)
+        for sig in (worker.finished, worker.no_asset, worker.failed):
+            sig.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self.main._threads.append((thread, worker))
+        thread.start()
+
+
 class SettingsDialog(QDialog):
     def __init__(self, parent, settings: dict):
         super().__init__(parent)
@@ -1870,7 +2137,7 @@ class SettingsDialog(QDialog):
 
 
 class ScanDialog(QDialog):
-    """Pick a folder; show found .exe files as a checklist to import."""
+    """Pick a folder; show found game executables as a checklist to import."""
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle("Scan folder for games")
@@ -2286,6 +2553,7 @@ class LauncherWindow(QMainWindow):
         self.addToolBar(tb)
         self._act(tb, "➕  Add", self.add_game)
         self._act(tb, "📁  Scan Folder", self.scan_folder)
+        self._act(tb, "⬇  Get Games", self.open_download_library)
         self._act(tb, "🪄  Identify", self.identify_library)
         self._act(tb, "🌐  Fetch Info", self.fetch_selected)
         self._act(tb, "✎  Edit", self.edit_selected)
@@ -2597,6 +2865,9 @@ class LauncherWindow(QMainWindow):
         self.play_btn.style().polish(self.play_btn)
 
     # ---------------- actions ----------------
+    def open_download_library(self):
+        DownloadLibraryDialog(self).exec()
+
     def add_game(self):
         title, ok = QInputDialog.getText(self, "Add Game", "Game title:")
         if not ok or not title.strip():

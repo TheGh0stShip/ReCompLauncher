@@ -27,7 +27,7 @@ all in one place. Built for the recomp scene.
 - **🖼 Box-art grid** — a resizable, drag-to-reorder library of cover art with a detail panel and hero banner.
 - **🪄 Auto-identify** — point it at a folder and it recognizes known recomps by their executable (`soh.exe` → *Ocarina of Time*, `2ship.exe` → *Majora's Mask*, and [15+ more](#-supported-recomps)). No manual renaming.
 - **🌐 Art & info, zero setup** — pulls box art and descriptions from **Wikipedia** automatically. Optional **SteamGridDB** key for premium curated covers.
-- **⬇ One-click downloads** — grab the latest Windows build of any game straight from its GitHub release. Perfect if you're new to recomps.
+- **⬇ Built-in download library** — browse supported recomp/decomp projects and grab the latest build directly from each project's official GitHub release, even before the game is in your local library. ROMs and original game data are never downloaded.
 - **⬆ Update checking** — checks each game's GitHub releases on launch and badges any card with an available update.
 - **⏱ Playtime tracking** — playtime, last-played, and launch counts, tracked automatically.
 - **🏆 RetroAchievements** — link your RA account and every game gets a 🏆 tab showing the official achievement set and your unlocks. Game IDs auto-match by title.
@@ -62,7 +62,7 @@ Requires **Python 3.10+**.
 
 1. Launch the app.
 2. Click **📁 Scan Folder** and point it at where you keep your recomp games — known titles are auto-recognized.
-3. (Or click **➕ Add** for a single game, or **⬇ Get Latest Release** to download one fresh from GitHub.)
+3. (Or click **➕ Add** for a single game, or **⬇ Get Games** to browse and download official project builds.)
 4. Select a game and hit **🌐 Fetch Info** to pull box art and a description.
 5. Press **▶ Play**.
 
@@ -85,11 +85,19 @@ Auto-identified out of the box (the list lives in `KNOWN_RECOMPS` in [`recomplau
 | Doom 64 | Doom64EX-Plus | N64 |
 | Super Mario 64 | sm64ex / sm64plus / sm64coopdx | N64 |
 | A Link to the Past | zelda3 | SNES |
+| Oracle of Ages & Oracle of Seasons | Epoch & Equinox | Game Boy Color |
 | Twilight Princess | Dusk | GameCube |
 | Sonic Unleashed | UnleashedRecomp | Xbox 360 |
 | Sonic 1 & 2 (2013) | RSDKv4 Decompilation | Sega |
 | Sonic CD (2011) | RSDKv3 Decompilation | Sega |
+| Sonic Mania | RSDKv5 Decompilation | PC |
 | Jak and Daxter | OpenGOAL | PS2 |
+| Pokémon Snap | Snap64Recomp | N64 |
+| Mega Man X | Mega Man X SNES Recomp | SNES |
+| Super Mario Bros. | Super Mario Bros. NES Recomp | NES |
+| Duck Hunt | Duck Hunt NES Recomp | NES |
+| Faxanadu | Faxanadu NES Recomp | NES |
+| Tomb Raider I–III | TRX Community Edition | PC |
 
 **Adding a recomp is a one-entry change** — see [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome!
 
